@@ -152,34 +152,6 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, onCance
       handleFile(e.clipboardData.files[0]);
     }
   }, [handleFile, isLoading]);
-
-  const handlePasteFromButton = async () => {
-    if (isLoading) return;
-    try {
-        if (!navigator.clipboard.read) {
-            alert('お使いのブラウザはクリップボードからの貼り付けに対応していません。');
-            return;
-        }
-        const clipboardItems = await navigator.clipboard.read();
-        for (const item of clipboardItems) {
-            const imageType = item.types.find(type => type.startsWith('image/'));
-            if (imageType) {
-                const blob = await item.getType(imageType);
-                const file = new File([blob], `pasted-image.${imageType.split('/')[1]}`, { type: imageType });
-                handleFile(file);
-                return; // Found an image, so we can stop.
-            }
-        }
-        alert('クリップボードに画像が見つかりませんでした。');
-    } catch (err) {
-        console.error('クリップボードの読み取りに失敗しました:', err);
-        if (err instanceof Error && err.name === 'NotAllowedError') {
-            alert('クリップボードへのアクセスが拒否されました。ブラウザの設定で権限を許可してください。');
-        } else {
-            alert('クリップボードからの画像の読み取りに失敗しました。ブラウザの権限を確認するか、別の方法で画像をアップロードしてください。');
-        }
-    }
-  };
   
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -205,13 +177,6 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, onCance
               変換完了 ({elapsedTime}秒)
             </div>
           ) : null}
-          <button
-            onClick={handlePasteFromButton}
-            disabled={isLoading}
-            className="px-4 py-2 bg-indigo-600 rounded-md text-white font-semibold hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-          >
-            ペースト
-          </button>
           {isLoading ? (
             <button
               onClick={onCancel}
