@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { convertImageToHtml } from './services/geminiService';
 
@@ -463,10 +462,10 @@ const App: React.FC = () => {
     <div className="bg-slate-900 text-white min-h-screen font-sans">
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
         <header className="text-center mb-8 md:mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 py-2">
             Image2Html
           </h1>
-          <p className="text-slate-400 mt-2">UI画像をHTMLコードに変換します</p>
+          <p className="text-slate-400 mt-4">UI画像をHTMLコードに変換します</p>
         </header>
 
         <ConversionOptions
