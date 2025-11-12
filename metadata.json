@@ -1,0 +1,5 @@
+{
+  "name": "Image2Html",
+  "description": "UI画像をHTMLコードに変換するツールです。UIの画像を貼り付けるかアップロードすると、マークダウンファイルに埋め込むのに適したHTMLコードに変換します。",
+  "requestFramePermissions": []
+}
