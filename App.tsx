@@ -23,17 +23,98 @@ const fileToBase64 = (file: File): Promise<{ base64: string, mimeType: string }>
 
 // --- CHILD COMPONENTS ---
 
+// ConversionOptions Component
+interface ConversionOptionsProps {
+  reproduceColors: boolean;
+  onReproduceColorsChange: (checked: boolean) => void;
+  fidelity: number;
+  onFidelityChange: (value: number) => void;
+  disabled: boolean;
+}
+
+const ConversionOptions: React.FC<ConversionOptionsProps> = ({
+  reproduceColors, onReproduceColorsChange,
+  fidelity, onFidelityChange,
+  disabled
+}) => {
+  const fidelityOptions = [
+    { label: 'サイズ優先', value: 10 },
+    { label: 'バランス', value: 50 },
+    { label: '再現性優先', value: 100 },
+  ];
+
+  return (
+    <section className="bg-slate-800 rounded-lg p-6 shadow-lg mb-8">
+      <h2 className="text-xl font-semibold text-slate-200 mb-6">変換オプション</h2>
+      <div className="space-y-6">
+        {/* Reproduce Colors Checkbox */}
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="reproduce-colors"
+            checked={reproduceColors}
+            onChange={(e) => onReproduceColorsChange(e.target.checked)}
+            disabled={disabled}
+            className="h-5 w-5 rounded bg-slate-700 border-slate-500 text-pink-600 focus:ring-pink-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <label htmlFor="reproduce-colors" className={`ml-3 text-slate-300 ${disabled ? 'text-slate-500 cursor-not-allowed' : 'cursor-pointer'}`}>
+            色を再現する
+          </label>
+        </div>
+
+        {/* Fidelity Radio Buttons */}
+        <div className="space-y-2">
+          <label className={`text-slate-300 ${disabled ? 'text-slate-500' : ''}`}>
+            再現度
+          </label>
+          <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-700 p-1">
+            {fidelityOptions.map((option) => (
+              <div key={option.value}>
+                <input
+                  type="radio"
+                  id={`fidelity-${option.value}`}
+                  name="fidelity"
+                  value={option.value}
+                  checked={fidelity === option.value}
+                  onChange={(e) => onFidelityChange(Number(e.target.value))}
+                  disabled={disabled}
+                  className="sr-only"
+                />
+                <label
+                  htmlFor={`fidelity-${option.value}`}
+                  className={`
+                    block w-full text-center text-sm font-semibold rounded-md py-2 px-2 transition-colors duration-200
+                    ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+                    ${fidelity === option.value
+                      ? 'bg-pink-600 text-white shadow'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }
+                  `}
+                >
+                  {option.label}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+
 // ImageInput Component
 interface ImageInputProps {
   onImageSelect: (file: File) => void;
   onRetry: () => void;
+  onCancel: () => void;
   imageFile: File | null;
   isLoading: boolean;
   elapsedTime: number;
   hasResult: boolean;
 }
 
-const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, imageFile, isLoading, elapsedTime, hasResult }) => {
+const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, onCancel, imageFile, isLoading, elapsedTime, hasResult }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageUrl = imageFile ? URL.createObjectURL(imageFile) : null;
@@ -71,6 +152,34 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, imageFi
       handleFile(e.clipboardData.files[0]);
     }
   }, [handleFile, isLoading]);
+
+  const handlePasteFromButton = async () => {
+    if (isLoading) return;
+    try {
+        if (!navigator.clipboard.read) {
+            alert('お使いのブラウザはクリップボードからの貼り付けに対応していません。');
+            return;
+        }
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+            const imageType = item.types.find(type => type.startsWith('image/'));
+            if (imageType) {
+                const blob = await item.getType(imageType);
+                const file = new File([blob], `pasted-image.${imageType.split('/')[1]}`, { type: imageType });
+                handleFile(file);
+                return; // Found an image, so we can stop.
+            }
+        }
+        alert('クリップボードに画像が見つかりませんでした。');
+    } catch (err) {
+        console.error('クリップボードの読み取りに失敗しました:', err);
+        if (err instanceof Error && err.name === 'NotAllowedError') {
+            alert('クリップボードへのアクセスが拒否されました。ブラウザの設定で権限を許可してください。');
+        } else {
+            alert('クリップボードからの画像の読み取りに失敗しました。ブラウザの権限を確認するか、別の方法で画像をアップロードしてください。');
+        }
+    }
+  };
   
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -86,7 +195,7 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, imageFi
     <section className="bg-slate-800 rounded-lg p-6 flex flex-col h-full shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-slate-200">入力イメージ</h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {isLoading ? (
             <div className="text-slate-400" aria-live="polite">
               変換中... ({elapsedTime}秒)
@@ -97,12 +206,28 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, imageFi
             </div>
           ) : null}
           <button
-            onClick={onRetry}
-            disabled={!imageFile || isLoading}
-            className="px-4 py-2 bg-pink-600 rounded-md text-white font-semibold hover:bg-pink-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+            onClick={handlePasteFromButton}
+            disabled={isLoading}
+            className="px-4 py-2 bg-indigo-600 rounded-md text-white font-semibold hover:bg-indigo-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
           >
-            リトライ
+            ペースト
           </button>
+          {isLoading ? (
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 bg-yellow-500 rounded-md text-white font-semibold hover:bg-yellow-600 transition-colors"
+            >
+              中断
+            </button>
+          ) : (
+            <button
+              onClick={onRetry}
+              disabled={!imageFile || isLoading}
+              className="px-4 py-2 bg-pink-600 rounded-md text-white font-semibold hover:bg-pink-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+            >
+              リトライ
+            </button>
+          )}
         </div>
       </div>
       <div 
@@ -216,7 +341,7 @@ const CodeOutput: React.FC<CodeOutputProps> = ({ htmlCode, isLoading, error }) =
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale-1.0">
   <title>Generated UI</title>
 </head>
 <body>
@@ -291,6 +416,10 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef<number | null>(null);
+  const isCancelledRef = useRef<boolean>(false);
+  
+  const [reproduceColors, setReproduceColors] = useState<boolean>(true);
+  const [fidelity, setFidelity] = useState<number>(50);
 
   const handleImageSelect = (file: File | null) => {
     if (file) {
@@ -304,6 +433,7 @@ const App: React.FC = () => {
   const processConversion = useCallback(async () => {
     if (!imageFile) return;
     
+    isCancelledRef.current = false;
     if (timerRef.current) {
         clearInterval(timerRef.current);
     }
@@ -318,20 +448,36 @@ const App: React.FC = () => {
 
     try {
       const { base64, mimeType } = await fileToBase64(imageFile);
-      const html = await convertImageToHtml(base64, mimeType);
+      const html = await convertImageToHtml(base64, mimeType, { reproduceColors, fidelity });
+      
+      if (isCancelledRef.current) return;
       setGeneratedHtml(html);
+
     } catch (err) {
+      if (isCancelledRef.current) return;
       console.error(err);
       const message = err instanceof Error ? err.message : 'HTMLへの変換中にエラーが発生しました。';
       setError(message + ' しばらくしてからもう一度お試しください。');
     } finally {
-      setIsLoading(false);
+      if (!isCancelledRef.current) {
+        setIsLoading(false);
+      }
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     }
-  }, [imageFile]);
+  }, [imageFile, reproduceColors, fidelity]);
+
+  const handleCancel = () => {
+    isCancelledRef.current = true;
+    setIsLoading(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setError("変換が中断されました。");
+  };
 
   useEffect(() => {
     if (imageFile) {
@@ -357,12 +503,21 @@ const App: React.FC = () => {
           </h1>
           <p className="text-slate-400 mt-2">UI画像をHTMLコードに変換します</p>
         </header>
+
+        <ConversionOptions
+          reproduceColors={reproduceColors}
+          onReproduceColorsChange={setReproduceColors}
+          fidelity={fidelity}
+          onFidelityChange={setFidelity}
+          disabled={isLoading}
+        />
         
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col gap-8 min-h-[30rem] md:min-h-[40rem]">
             <ImageInput 
               onImageSelect={handleImageSelect} 
               onRetry={handleRetry} 
+              onCancel={handleCancel}
               imageFile={imageFile} 
               isLoading={isLoading} 
               elapsedTime={elapsedTime} 
