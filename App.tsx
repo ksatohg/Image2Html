@@ -1,5 +1,6 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { convertImageToHtml } from './services/geminiService';
+import { convertImageToHtml, getAvailableModels, refineHtml } from './services/geminiService';
 
 // --- UTILITY FUNCTION ---
 const fileToBase64 = (file: File): Promise<{ base64: string, mimeType: string }> => {
@@ -28,12 +29,17 @@ interface ConversionOptionsProps {
   onReproduceColorsChange: (checked: boolean) => void;
   fidelity: number;
   onFidelityChange: (value: number) => void;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
+  modelOptions: { value: string; label: string }[];
   disabled: boolean;
 }
 
 const ConversionOptions: React.FC<ConversionOptionsProps> = ({
   reproduceColors, onReproduceColorsChange,
   fidelity, onFidelityChange,
+  selectedModel, onModelChange,
+  modelOptions,
   disabled
 }) => {
   const fidelityOptions = [
@@ -46,6 +52,26 @@ const ConversionOptions: React.FC<ConversionOptionsProps> = ({
     <section className="bg-slate-800 rounded-lg p-6 shadow-lg mb-8">
       <h2 className="text-xl font-semibold text-slate-200 mb-6">変換オプション</h2>
       <div className="space-y-6">
+        {/* Model Selection Dropdown */}
+        <div className="space-y-2">
+          <label htmlFor="model-select" className={`text-slate-300 ${disabled ? 'text-slate-500' : ''}`}>
+            使用モデル
+          </label>
+          <select
+            id="model-select"
+            value={selectedModel}
+            onChange={(e) => onModelChange(e.target.value)}
+            disabled={disabled}
+            className="w-full bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-pink-500 focus:border-pink-500 block p-2.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {modelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Reproduce Colors Checkbox */}
         <div className="flex items-center">
           <input
@@ -163,7 +189,7 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, onCance
   };
 
   return (
-    <section className="bg-slate-800 rounded-lg p-6 flex flex-col h-full shadow-lg">
+    <section className="bg-slate-800 rounded-lg p-6 flex flex-col h-full min-h-[400px] shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-slate-200">入力イメージ</h2>
         <div className="flex items-center gap-2">
@@ -224,6 +250,63 @@ const ImageInput: React.FC<ImageInputProps> = ({ onImageSelect, onRetry, onCance
             <p className="text-sm">またはクリックしてファイルを選択</p>
           </div>
         )}
+      </div>
+    </section>
+  );
+};
+
+// RefinementControl Component
+interface RefinementControlProps {
+  onRefine: (instruction: string) => void;
+  isLoading: boolean;
+}
+
+const RefinementControl: React.FC<RefinementControlProps> = ({ onRefine, isLoading }) => {
+  const [instruction, setInstruction] = useState("");
+
+  const handleSubmit = () => {
+    if (!instruction.trim()) return;
+    onRefine(instruction);
+    setInstruction("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        handleSubmit();
+    }
+  };
+
+  return (
+    <section className="bg-slate-800 rounded-lg p-6 shadow-lg">
+      <h2 className="text-xl font-semibold text-slate-200 mb-4">修正指示</h2>
+      <div className="space-y-4">
+        <p className="text-slate-400 text-sm">
+          生成されたHTMLの気になる部分を指示してください（例：「ボタンの色を赤にして」「タイトルを中央揃えにして」）
+        </p>
+        <textarea
+          className="w-full bg-slate-700 border border-slate-600 text-slate-200 rounded-lg p-3 focus:ring-pink-500 focus:border-pink-500 placeholder-slate-500"
+          rows={3}
+          placeholder="修正内容を入力..."
+          value={instruction}
+          onChange={(e) => setInstruction(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!instruction.trim() || isLoading}
+          className="w-full px-4 py-2 bg-pink-600 rounded-md text-white font-semibold hover:bg-pink-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+             <>
+               <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+               </svg>
+               修正中...
+             </>
+          ) : '修正を適用'}
+        </button>
       </div>
     </section>
   );
@@ -305,7 +388,7 @@ const CodeOutput: React.FC<CodeOutputProps> = ({ htmlCode, isLoading, error }) =
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale-1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Generated UI</title>
 </head>
 <body>
@@ -384,6 +467,25 @@ const App: React.FC = () => {
   
   const [reproduceColors, setReproduceColors] = useState<boolean>(true);
   const [fidelity, setFidelity] = useState<number>(50);
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
+  const [modelOptions, setModelOptions] = useState<{ value: string; label: string }[]>([
+    { label: 'Gemini 2.5 Flash (Default)', value: 'gemini-2.5-flash' },
+    { label: 'Gemini 3.0 Pro Preview', value: 'gemini-3-pro-preview' }
+  ]);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const models = await getAvailableModels();
+        if (models && models.length > 0) {
+          setModelOptions(models);
+        }
+      } catch (e) {
+        console.error("Failed to load models dynamically", e);
+      }
+    };
+    fetchModels();
+  }, []);
 
   const handleImageSelect = (file: File | null) => {
     if (file) {
@@ -412,7 +514,7 @@ const App: React.FC = () => {
 
     try {
       const { base64, mimeType } = await fileToBase64(imageFile);
-      const html = await convertImageToHtml(base64, mimeType, { reproduceColors, fidelity });
+      const html = await convertImageToHtml(base64, mimeType, { reproduceColors, fidelity, model: selectedModel });
       
       if (isCancelledRef.current) return;
       setGeneratedHtml(html);
@@ -431,7 +533,28 @@ const App: React.FC = () => {
         timerRef.current = null;
       }
     }
-  }, [imageFile, reproduceColors, fidelity]);
+  }, [imageFile, reproduceColors, fidelity, selectedModel]);
+
+  const handleRefine = useCallback(async (instruction: string) => {
+    if (!imageFile || !generatedHtml) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { base64, mimeType } = await fileToBase64(imageFile);
+      const refinedHtml = await refineHtml(base64, mimeType, generatedHtml, instruction, selectedModel);
+      
+      setGeneratedHtml(refinedHtml);
+    } catch (err) {
+        console.error(err);
+        const message = err instanceof Error ? err.message : '修正の生成に失敗しました。';
+        setError(message);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [imageFile, generatedHtml, selectedModel]);
+
 
   const handleCancel = () => {
     isCancelledRef.current = true;
@@ -473,6 +596,9 @@ const App: React.FC = () => {
           onReproduceColorsChange={setReproduceColors}
           fidelity={fidelity}
           onFidelityChange={setFidelity}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          modelOptions={modelOptions}
           disabled={isLoading}
         />
         
@@ -487,6 +613,13 @@ const App: React.FC = () => {
               elapsedTime={elapsedTime} 
               hasResult={hasResult}
             />
+            {/* Show RefinementControl only when HTML is generated */}
+            {generatedHtml && !error && (
+                <RefinementControl 
+                    onRefine={handleRefine}
+                    isLoading={isLoading}
+                />
+            )}
           </div>
           <div className="flex flex-col gap-8">
             <HtmlPreview htmlCode={generatedHtml} isLoading={isLoading} error={error} />
