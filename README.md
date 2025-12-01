@@ -29,6 +29,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1V4V3EIKiJ-sDocZ7sw0iIk
    - 「キーを作成」ボタンで作成、APIキーをコピーしておく
 2. このディレクトリをコンソールで開き、
    ```npm install```
-3. このディレクトリの「.env.local」を編集、GEMINI_API_KEYにAPIをペースト
+3. このディレクトリの「.env.local」を作成、GEMINI_API_KEYにAPIを設定
+   ```GEMINI_API_KEY=APIキーをペースト```
 4. 「■Image2Htmlを起動.bat」を実行
    
