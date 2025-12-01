@@ -21,15 +21,15 @@ View your app in AI Studio: https://ai.studio/apps/drive/1V4V3EIKiJ-sDocZ7sw0iIk
 
 ## 使い方
 ※ 1～3は初回起動だけ  
-1. Google AI Studio（https://aistudio.google.com/）でAPIキーを発行する
+1. [Google AI Studio](https://aistudio.google.com/)でAPIキーを発行する
    - 左下「Get API key」
    - 右上「APIキーを作成」
    - 新しいキーを作成から、「キー名の設定」を適当（例：Image2Html）に入力
    - インポートしたプロジェクトを選択から、「プロジェクトを作成」を選択、プロジェクトに適当な名前（例：Image2Html）を付ける
    - 「キーを作成」ボタンで作成、APIキーをコピーしておく
-2. このディレクトリをコンソールで開き、
+2. このディレクトリをコンソールで開き、  
    ```npm install```
-3. このディレクトリの「.env.local」を作成、GEMINI_API_KEYにAPIを設定
+3. このディレクトリの「.env.local」を作成、GEMINI_API_KEYにAPIを設定  
    ```GEMINI_API_KEY=APIキーをペースト```
 4. 「■Image2Htmlを起動.bat」を実行
    
